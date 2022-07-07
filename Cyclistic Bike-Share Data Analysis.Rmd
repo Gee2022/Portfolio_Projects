@@ -1,0 +1,250 @@
+---
+title: "Analysis of Cyclistic's Bike-Share Data"
+author: "Gerald B. Potkah"
+date: "16/02/2022"
+output: html_document
+---
+
+## **Business task statement**
+In this study I will be analyzing the historical bike trip data of a bike-share company in Chicago called Cyclistic, to identify trends on how annual members and casual riders use Cyclistic bikes differently. I will use the insights gained from the analysis to make recommendations for the design of a new marketing strategy to convert casual riders into annual members. 
+
+## **Data**
+The cyclistic trip data was downloaded [here](https://divvy-tripdata.s3.amazonaws.com/index.html). The data was organised by months, and every monthly dataset contained ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id,start_latitude, start_longitude, end_latitude, end_longitude, and member_casual. The data is assumed to be credible since it was compiled and published by the organisation. 
+
+#### Inspection and preliminary cleaning
+Using Microsoft excel, 12 months trip data from january 2021 to December 2021 was downloaded. The datasets were Sorted and filtered to check for errors. The following steps were carried out:
+* Sort by rideable_type, start_station_name, end_station_name, and member_casual in alphabetical order.
+*Freeze row 1 to keep the column name visible as i scroll down the spreadsheet.
+* Filter start_station_name and end_station_name so as to delete rows that had blanks in these two fields. 
+* Created a column called rideduration by substracting started_at from ended_at and used filter to remove rows that had negative rideduration values. Also created a column called day_of_week formatted as a number with no decimals, where 1 = Sunday and 7 = Saturday.
+* Used Trim function on rideable_type, start_station_name, end_station_name, and member_casual to remove any extra space and blanks to make formatting consistent.
+* Saved each file with an extension of _V1_ indicating version 1.
+
+#### Merge spreadsheets.
+RStudio is used to combine individual monthly spreadsheets into a full-year spreadsheet. Further cleaning, final analysis and supporting visualizations are performed using this tool. 
+
+#### *Setting up my environment*
+Note: setting up my environment by loading 'tidyverse', 'lubridate', and 'ggplot2' packages
+
+```{r loading packages}
+library(tidyverse)  #helps data import and wrangling
+library(lubridate)  #helps wrangle date attributes
+library(ggplot2)  #helps visualize data
+```
+
+#### *import datasets into RStudio*
+Here I set the working directory.
+
+```{r directory setup}
+getwd() #displays your working directory
+setwd("/Users/Gerald/Desktop/case_study/Rscripts")#sets your working directory 
+
+```
+
+#### *Uploading datasets*
+Here, I upload all twelve csv files
+
+```{r uploading data}
+ridedata_202101 <-read.csv("202101-biketripdata-V1.csv")
+ridedata_202102 <-read.csv("202102-biketripdata-V1.csv")
+ridedata_202103 <-read.csv("202103-biketripdata-V1.csv")
+ridedata_202104 <-read.csv("202104-biketripdata-V1.csv")
+ridedata_202105 <-read.csv("202105-biketripdata-V1.csv")
+ridedata_202106 <-read.csv("202106-biketripdata-V1.csv")
+ridedata_202107 <-read.csv("202107-biketripdata-V1.csv")
+ridedata_202108 <-read.csv("202108-biketripdata-V1.csv")
+ridedata_202109 <-read.csv("202109-biketripdata-V1.csv")
+ridedata_202110 <-read.csv("202110-biketripdata-V1.csv")
+ridedata_202111 <-read.csv("202111-biketripdata-V1.csv")
+ridedata_202112 <-read.csv("202112-biketripdata-V1.csv")
+```
+
+#### *Further Data cleanup*
+Here, I remove NA rows from monthly data.
+
+```{r data cleanup}
+Cl_ridedata_202101<-na.omit(ridedata_202101)
+Cl_ridedata_202102<-na.omit(ridedata_202102)
+Cl_ridedata_202103<-na.omit(ridedata_202103)
+Cl_ridedata_202104<-na.omit(ridedata_202104)
+Cl_ridedata_202105<-na.omit(ridedata_202105)
+Cl_ridedata_202106<-na.omit(ridedata_202106)
+Cl_ridedata_202107<-na.omit(ridedata_202107)
+Cl_ridedata_202108<-na.omit(ridedata_202108)
+Cl_ridedata_202109<-na.omit(ridedata_202109)
+Cl_ridedata_202110<-na.omit(ridedata_202110)
+Cl_ridedata_202111<-na.omit(ridedata_202111)
+Cl_ridedata_202112<-na.omit(ridedata_202112)
+
+```
+
+#### *Merging data*
+Here, the  individual month's data frames are stacked into one big data frame.
+
+```{r merging data}
+all_rides <- rbind(Cl_ridedata_202101, Cl_ridedata_202102, Cl_ridedata_202103,
+                   Cl_ridedata_202104, Cl_ridedata_202105, Cl_ridedata_202106,
+                   Cl_ridedata_202107, Cl_ridedata_202108, Cl_ridedata_202109,
+                   Cl_ridedata_202110, Cl_ridedata_202111, Cl_ridedata_202112)
+
+```
+
+#### *New table*
+Here, I inspect the new data frame of the full-year data.
+
+```{r data inspectation}
+colnames(all_rides)  #List of column names
+nrow(all_rides)  #How many rows are in data frame?
+dim(all_rides)  #Dimensions of the data frame?
+head(all_rides)  #See the first 6 rows of data frame.  Also tail(all_trips)
+str(all_rides)  #See list of columns and data types (numeric, character, etc)
+summary(all_rides)  #Statistical summary of data. Mainly for numerics
+
+```
+
+#### *Prepare the data for analysis*
+Here, I split the started_at column to create date, month, day, and year columns of each ride. This provides additional opportunities to aggregate the data. Note that i created another day_of_week column, this time with values being the name of the days.
+
+```{r prep for analysis}
+all_rides$date <- as.Date(all_rides$started_at) #The default format is yyyy-mm-dd
+all_rides$month <- format(as.Date(all_rides$date), "%m")
+all_rides$day <- format(as.Date(all_rides$date), "%d")
+all_rides$year <- format(as.Date(all_rides$date), "%Y")
+all_rides$day_of_week1 <- format(as.Date(all_rides$date), "%A")
+```
+
+#### *A Calculated field*
+I calculated the trip duration (i.e., ride_length) for each bike (in minutes) by substantiating started_at from ended_at.Some trip duration shows up as negative. These rides were deleted from the data set. 
+
+```{r ride_length calculation}
+all_rides$ride_length <- difftime(all_rides$ended_at,all_rides$started_at, units = "mins")
+all_rides$ride_length <- as.numeric(as.character(all_rides$ride_length)) 
+
+```
+
+#### *Inspect the structure of the columns*
+Here, I re-inspect the structure of the columns in the data frame.
+
+```{r second inspection of columns}
+str(all_rides)
+```
+
+## **Descriptive analysis**
+
+Here I get the summary statistics on ride_length
+
+```{r summary stats of ride_length}
+summary(all_rides$ride_length)
+```
+
+I also get the summary statistics(i.e., mean, median, maximum, and minimum) of ride_length by member and casual users 
+
+```{r summary stats of ride_length by usertype}
+aggregate(all_rides$ride_length ~ all_rides$member_casual, FUN = mean)
+aggregate(all_rides$ride_length ~ all_rides$member_casual, FUN = median)
+aggregate(all_rides$ride_length ~ all_rides$member_casual, FUN = max)
+aggregate(all_rides$ride_length ~ all_rides$member_casual, FUN = min)
+
+```
+
+I compare the daily average ride_length between members and casual users
+
+```{r comparing avg. ride_length between usetype}
+all_rides$day_of_week1 <- ordered(all_rides$day_of_week1,
+                                 levels=c("Sunday", "Monday", "Tuesday", 
+                                          "Wednesday", "Thursday", "Friday", "Saturday"))
+
+aggregate(all_rides$ride_length ~ all_rides$member_casual + 
+            all_rides$day_of_week1, FUN = mean)
+
+```
+
+I analyze the average ride_length by cuarual user type (i.e., casual riders and annual members) and weekday.
+
+```{r avg. daily ride_length by usertype}
+all_rides %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%  
+  group_by(member_casual, weekday) %>%  
+  summarise(number_of_rides = n()							
+            ,average_duration = mean(ride_length)) %>% 		
+  arrange(member_casual, weekday)		
+
+```
+
+## **Supporting Visualizations**
+Here, i visualize the day_of_week average ride duration by both casual riders and annual members.
+
+```{r Avg. ride_length by day_of_week}
+all_rides %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")
+```
+
+Here, i compare the number of rides used by annual member and casual riders based on the bike type.
+
+```{r Number of rides by bike type}
+all_rides %>%
+  mutate(bike_type = all_rides$rideable_type) %>% 
+  group_by(member_casual, bike_type) %>%
+  summarise(number_of_rides = n()) %>%
+  arrange(member_casual, bike_type)  %>% 
+  ggplot(aes(x = bike_type, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")
+```
+
+Here, i compare the average ride duration used by annual member and casual riders based on the bike type.
+
+```{r Avg. ride_length by bike type}
+all_rides %>%
+  mutate(bike_type = all_rides$rideable_type) %>% 
+  group_by(member_casual, bike_type) %>%
+  summarise(number_of_rides = n(),average_duration = mean(ride_length)) %>%
+  arrange(member_casual, bike_type)  %>% 
+  ggplot(aes(x = bike_type, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")
+
+```
+
+Here, i look at the overall trend on the number of rides for casual riders and annual members over a span of one year.
+
+```{r overall number of rides over 1 year}
+all_rides %>%
+  group_by(date,member_casual) %>%
+  summarise(number_of_rides=n()) %>%
+
+ggplot(aes(x=date, y=number_of_rides, color=member_casual)) +
+  geom_path() 
+```
+
+Here, i use grouped boxplot to compare casual riders and annual member in  different seasons (i.e., Fall, Summer, Winter, and Spring)
+
+```{r boxplot seasonal comparison of usertype}
+all_rides %>%
+  #all_rides$month <- as.double(all_rides$month) %>%
+  mutate(Season = case_when(month %in%  c('09', '10', '11')  ~ "Fall",
+                            month %in%  c('12', '01', '02') ~ "Winter",
+                            month %in%  c('03', '04', '05')   ~ "Spring",
+                            TRUE ~ "Summer")) %>% 
+  group_by(month,Season,member_casual) %>%
+  summarise(number_of_rides=n()) %>%
+ 
+ggplot(aes(x=member_casual,y=number_of_rides,fill=member_casual))+
+  geom_boxplot()+
+  facet_wrap(~Season)
+```
+
+## **EXPORT SUMMARY FILE** 
+
+Here, i create and export a csv file that i will visualize in Excel or Tableau software.
+
+```{r Export csv file}
+counts <- aggregate(all_rides$ride_length ~ all_rides$member_casual + all_rides$day_of_week, FUN = mean)
+write.csv(counts, "/Users/Gerald/Desktop/case_study/Rscripts/result1.csv")
+
+```
+
